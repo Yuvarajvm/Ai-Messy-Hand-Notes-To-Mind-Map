@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.log
+
+# IDE/OS
+.vscode/
+.DS_Store
+
+# Secrets (never commit)
+.env
+.env.*
+/backend/.env
+/secrets/
+/keys/
+/credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Service account patterns (adjust names as you use them)
+*service-account*.json
+*vision-key*.json
+*credentials*.json

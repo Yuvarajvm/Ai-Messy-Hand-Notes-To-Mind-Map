@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Notes → Mindmap & Flowchart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/auth.css" />
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>🧠 AI-Powered Notes → Mindmap & Flowchart</h1>
+  </header>
+
+  <section class="controls card">
+    <!-- Single OCR form -->
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+      <label class="file-label">
+        <span>Upload images or PDF</span>
+        <input type="file" id="files" name="files" multiple accept=".png,.jpg,.jpeg,.pdf" required />
+      </label>
+
+      <label class="control">
+        OCR Language:
+        <select name="lang" id="lang">
+          <!-- Backend maps 'en' → 'eng' for Tesseract automatically -->
+          <option value="en" selected>English (eng)</option>
+        </select>
+      </label>
+
+      <label class="control">
+        Top concepts:
+        <input type="number" id="top_k" name="top_k" min="5" max="30" value="15" />
+      </label>
+
+      <label class="control">
+        OCR Engine:
+        <select id="ocrEngine" name="ocr_engine">
+          <option value="gcv" selected>Google Vision (recommended)</option>
+          <option value="tesseract">Tesseract (offline fallback)</option>
+        </select>
+      </label>
+
+      <label class="control" title="For Tesseract only">
+        <input type="checkbox" id="messy" name="messy" value="true" />
+        Messy mode (line-by-line) [Tesseract only]
+      </label>
+
+      <button id="processBtn" type="submit" class="btn btn-primary">Process</button>
+      <span id="status" class="status"></span>
+    </form>
+  </section>
+
+  <section class="grid-two">
+    <div class="panel card">
+      <h2>Extracted Text</h2>
+      <textarea id="ocrText" rows="14" placeholder="OCR text will appear here..."></textarea>
+    </div>
+    <div class="panel card">
+      <h2>Top Concepts</h2>
+      <ol id="concepts"></ol>
+    </div>
+  </section>
+
+  <section class="grid-two">
+    <div class="graph-panel card">
+      <h2>Mindmap</h2>
+      <div id="mindmap" class="graph"></div>
+    </div>
+    <div class="graph-panel card">
+      <h2>Flowchart</h2>
+      <div id="flowchart" class="graph"></div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <small>Tip: Clear scans and good lighting improve OCR quality. Printed text works best.</small>
+  </footer>
+
+  <!-- App logic -->
+  <script src="app.js" defer></script>
+  <!-- Non-dismissible login/signup modal + gating -->
+  <script src="/auth.js" defer></script>
+</body>
+</html>
