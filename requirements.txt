@@ -8,3 +8,4 @@ spacy==3.7.5
 networkx==3.3
 google-cloud-vision==3.7.2
 gunicorn==21.2.0
+Flask-Login==0.6.3
