@@ -1,4 +1,9 @@
 Flask==3.0.3
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+PyMuPDF==1.23.4
+fitz==0.0.1.dev2
+protobuf==6.32.1
 pytesseract==0.3.10
 opencv-python==4.10.0.84
 numpy==1.26.4
@@ -8,5 +13,5 @@ spacy==3.7.5
 networkx==3.3
 google-cloud-vision==3.7.2
 gunicorn==21.2.0
-Flask-Login==0.6.3
-Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.43
+Werkzeug==3.1.3
