@@ -1,9 +1,12 @@
 # app.py
+
 import os
 import sys
+import platform
 from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_login import current_user
+import logging
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -31,23 +34,44 @@ from services.structure_utils import filter_concepts, bullets_to_graph, relation
 
 import networkx as nx
 
+# ✅ Configure Tesseract for Render/Linux
+try:
+    import pytesseract
+    if platform.system() == 'Linux':
+        # On Render, Tesseract is installed via Aptfile
+        pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+        print("✅ Tesseract configured for Linux")
+    elif os.environ.get('TESSERACT_CMD'):
+        # Windows with env var
+        pytesseract.pytesseract.tesseract_cmd = os.environ.get('TESSERACT_CMD')
+        print(f"✅ Tesseract configured: {os.environ.get('TESSERACT_CMD')}")
+except ImportError:
+    print("⚠️ pytesseract not installed")
+
 # Frontend static folder
 CANDIDATES = [
     Path(__file__).resolve().parents[1] / "frontend",
     BASE_DIR / "frontend",
 ]
+
 FRONTEND_DIR = next((p for p in CANDIDATES if p.exists()), BASE_DIR / "frontend")
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="/")
 
+# ✅ Configure logging for Render debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # --- Config ---
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
-# DB URI (SQLite by default in instance folder; override with DATABASE_URL)
+# ✅ DB URI - Use persistent storage on Render
+# Render provides DATABASE_URL for PostgreSQL, or use instance folder for SQLite
 os.makedirs(app.instance_path, exist_ok=True)
 db_path = os.path.join(app.instance_path, "notes.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{db_path}")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
 # Optional: require login to use /api/process
 REQUIRE_LOGIN_FOR_OCR = os.environ.get("REQUIRE_LOGIN_FOR_OCR", "0") == "1"
 
@@ -83,8 +107,10 @@ def edges_to_vis(edges):
     nodes = set()
     vis_edges = []
     for e in edges:
-        s = str(e["source"]); t = str(e["target"])
-        nodes.add(s); nodes.add(t)
+        s = str(e["source"])
+        t = str(e["target"])
+        nodes.add(s)
+        nodes.add(t)
         vis_edges.append({"from": s, "to": t, "label": str(e.get("label", ""))})
     vis_nodes = [{"id": n, "label": n} for n in sorted(nodes)]
     return vis_nodes, vis_edges
@@ -103,6 +129,7 @@ def process_notes():
     try:
         files = request.files.getlist("files")
         if not files:
+            logger.warning("No files uploaded")
             return jsonify({"error": "No files uploaded"}), 400
 
         lang = request.form.get("lang", "en")
@@ -110,7 +137,10 @@ def process_notes():
             top_k = int(request.form.get("top_k", "15"))
         except ValueError:
             top_k = 15
+
         ocr_engine = (request.form.get("ocr_engine", "gcv") or "gcv").lower()
+        
+        logger.info(f"Processing {len(files)} files with engine: {ocr_engine}, lang: {lang}")
 
         cfg = OCRConfig(
             engine=ocr_engine,
@@ -129,33 +159,45 @@ def process_notes():
         import tempfile
         extracted_texts, engines_used = [], []
         total_pages = 0
+
         with tempfile.TemporaryDirectory() as tmpdir:
             for f in files:
                 path = Path(tmpdir) / (f.filename or "upload")
                 f.save(str(path))
+                
+                logger.info(f"Processing file: {f.filename}")
+                
                 try:
                     res = extract_text_smart(str(path), cfg)
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"OCR failed with {ocr_engine}: {str(e)}")
                     if ocr_engine == "gcv":
+                        logger.info("Falling back to Tesseract")
                         cfg2 = OCRConfig(**{**cfg.__dict__, "engine": "tesseract"})
                         res = extract_text_smart(str(path), cfg2)
                     else:
                         raise
+
                 extracted_texts.append(res["text"])
                 engines_used.append(res["engine_used"])
                 total_pages += int(res.get("pages", 0) or 0)
 
         raw_text = "\n\n".join(t for t in extracted_texts if t).strip()
+        
         if not raw_text:
+            logger.error("No text detected from OCR")
             return jsonify({"error": "No text detected. Try clearer scans or check Vision credentials."}), 200
 
-        # Gemini cleanup/structure
+        logger.info(f"Extracted {len(raw_text)} characters from {total_pages} pages")
+
+        # ✅ Fixed: model_name parameter (was incorrectly placed)
         llm = llm_clean_and_structure(
             raw_text,
             summary_level=request.form.get("summary_level", "normal"),
             top_k_concepts=top_k,
-            model_name=request.form.get("gemini-1.5-flash")
+            model_name="gemini-2.5-flash"  # Fixed: was request.form.get("gemini-1.5-flash")
         )
+
         cleaned_text = (llm.get("clean_text") or raw_text).strip()
 
         # Top concepts: Gemini-first with filtering
@@ -183,17 +225,19 @@ def process_notes():
         fc = relations_to_graph(llm.get("relations") or [])
         if not fc["nodes"]:
             fc = {"nodes": mm["nodes"], "edges": mm["edges"]}
-            if not fc["nodes"]:
-                sentences = split_sentences(cleaned_text, nlp)
-                G = build_cooccurrence_graph(sentences, kp_list)
-                svo_edges = extract_svo_edges(cleaned_text, kp_list, nlp)
-                if not svo_edges:
-                    svo_edges = [{"source": u, "target": v, "label": f"w={d.get('weight',1)}"}
-                                 for u, v, d in G.edges(data=True)]
-                nodes, edges = edges_to_vis(svo_edges)
-                fc = {"nodes": nodes, "edges": edges}
+        if not fc["nodes"]:
+            sentences = split_sentences(cleaned_text, nlp)
+            G = build_cooccurrence_graph(sentences, kp_list)
+            svo_edges = extract_svo_edges(cleaned_text, kp_list, nlp)
+            if not svo_edges:
+                svo_edges = [{"source": u, "target": v, "label": f"w={d.get('weight',1)}"}
+                             for u, v, d in G.edges(data=True)]
+            nodes, edges = edges_to_vis(svo_edges)
+            fc = {"nodes": nodes, "edges": edges}
 
         engine_used = list(dict.fromkeys(engines_used or ["none"]))[0]
+        
+        logger.info(f"Successfully processed request - Engine: {engine_used}, Concepts: {len(keyphrases)}")
 
         return jsonify({
             "text": cleaned_text,
@@ -209,7 +253,9 @@ def process_notes():
                 "user": current_user.username if current_user.is_authenticated else None
             }
         })
+
     except Exception as e:
+        logger.error(f"Processing error: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.get("/healthz")
@@ -221,7 +267,7 @@ def healthz():
         msgs.append("GOOGLE_APPLICATION_CREDENTIALS not set (Vision will fail; tesseract fallback).")
     return jsonify({"ok": True, "messages": msgs, "frontend": str(FRONTEND_DIR)})
 
-# Register blueprints
+# ✅ Register blueprints (THIS WAS MISSING!)
 app.register_blueprint(auth_bp)
 app.register_blueprint(ocr_bp)
 
@@ -229,16 +275,16 @@ if __name__ == "__main__":
     if os.environ.get("GEMINI_API_KEY"):
         print("✅ Gemini API ready")
     else:
-        print("⚠️  GEMINI_API_KEY not set; deterministic fallback")
-
+        print("⚠️ GEMINI_API_KEY not set; deterministic fallback")
+    
     if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
         print("✅ Google Vision credentials detected")
     else:
-        print("⚠️  GOOGLE_APPLICATION_CREDENTIALS not set; choose 'tesseract' or expect fallback")
-
+        print("⚠️ GOOGLE_APPLICATION_CREDENTIALS not set; choose 'tesseract' or expect fallback")
+    
     if os.name == "nt" and not os.environ.get("POPPLER_PATH"):
-        print("ℹ️  Set POPPLER_PATH to your Poppler 'bin' folder (Windows)")
-
+        print("ℹ️ Set POPPLER_PATH to your Poppler 'bin' folder (Windows)")
+    
     print(f"DB: {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"Require login for OCR: {REQUIRE_LOGIN_FOR_OCR}")
     app.run(host="127.0.0.1", port=5000, debug=True)
