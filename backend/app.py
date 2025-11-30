@@ -1,290 +1,484 @@
 # app.py
-
 import os
 import sys
-import platform
-from pathlib import Path
-from flask import Flask, request, jsonify
-from flask_login import current_user
+import tempfile
 import logging
+from pathlib import Path
+from flask import Flask, request, jsonify, send_from_directory
+from flask_login import current_user, login_required
+import networkx as nx
+from services.pdf_export import export_results_to_pdf
 
-# Paths
-BASE_DIR = Path(__file__).resolve().parent
-SRC_DIR = BASE_DIR / "src"
+# ========== PATHS ==========
+BASE_DIR = Path(__file__).resolve().parent.parent  # Project root
+FRONTEND_DIR = BASE_DIR / "frontend"
+BACKEND_DIR = BASE_DIR / "backend"
+SRC_DIR = BACKEND_DIR / "src"
+
+# Add src to path for imports
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-# Extensions (DB + Login)
+# ========== EXTENSIONS & MODELS ==========
 from extensions import db, login_manager
 from models import User
 
-# Blueprints
+# ========== BLUEPRINTS ==========
 from auth.routes import auth_bp
-from routes.ocr_routes import ocr_bp  # optional OCR JSON API
 
-# NLP (existing)
-from src.nlp.extract import get_nlp, extract_keyphrases, split_sentences
+# ========== NLP MODULES ==========
+from src.nlp.extract import get_nlp, extract_keyphrases
 from src.nlp.relationships import build_cooccurrence_graph, extract_svo_edges
 from src.nlp.hierarchy import build_hierarchy_tree
 
-# OCR + Gemini structure
+# ========== OCR & SERVICES ==========
 from services.ocr_pipeline import OCRConfig, extract_text_smart
-from services.llm_post import llm_clean_and_structure
+from services.llm_post import llm_clean_and_structure, extract_mindmap_with_gemini
 from services.structure_utils import filter_concepts, bullets_to_graph, relations_to_graph
 
-import networkx as nx
-
-# ✅ Configure Tesseract for Render/Linux
-try:
-    import pytesseract
-    if platform.system() == 'Linux':
-        # On Render, Tesseract is installed via Aptfile
-        pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
-        print("✅ Tesseract configured for Linux")
-    elif os.environ.get('TESSERACT_CMD'):
-        # Windows with env var
-        pytesseract.pytesseract.tesseract_cmd = os.environ.get('TESSERACT_CMD')
-        print(f"✅ Tesseract configured: {os.environ.get('TESSERACT_CMD')}")
-except ImportError:
-    print("⚠️ pytesseract not installed")
-
-# Frontend static folder
-CANDIDATES = [
-    Path(__file__).resolve().parents[1] / "frontend",
-    BASE_DIR / "frontend",
-]
-
-FRONTEND_DIR = next((p for p in CANDIDATES if p.exists()), BASE_DIR / "frontend")
-
-app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="/")
-
-# ✅ Configure logging for Render debugging
-logging.basicConfig(level=logging.INFO)
+# ========== LOGGING ==========
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:%(name)s:%(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# --- Config ---
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+# ========== CREATE FLASK APP ==========
+def create_app():
+    """Create and configure Flask application"""
+    app = Flask(
+        __name__,
+        static_folder=str(FRONTEND_DIR),
+        static_url_path=''
+    )
+    
+    # ===== CONFIGURATION =====
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    
+    # Database setup
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        instance_dir = BASE_DIR / "instance"
+        instance_dir.mkdir(exist_ok=True)
+        db_path = instance_dir / "notes.db"
+        db_url = f"sqlite:///{db_path}"
+        logger.info(f"DB: {db_url}")
+    
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    
+    # Upload settings
+    app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB max
+    app.config["JSON_AS_ASCII"] = False
+    
+    # ===== INITIALIZE EXTENSIONS =====
+    db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+        logger.info("Database tables created")
+    
+    return app
 
-# ✅ DB URI - Use persistent storage on Render
-# Render provides DATABASE_URL for PostgreSQL, or use instance folder for SQLite
-os.makedirs(app.instance_path, exist_ok=True)
-db_path = os.path.join(app.instance_path, "notes.db")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{db_path}")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app = create_app()
 
-# Optional: require login to use /api/process
-REQUIRE_LOGIN_FOR_OCR = os.environ.get("REQUIRE_LOGIN_FOR_OCR", "0") == "1"
+# ========== CORS HEADERS ==========
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
-# Init extensions
-db.init_app(app)
-login_manager.init_app(app)
-
+# ========== USER LOADER ==========
 @login_manager.user_loader
-def load_user(user_id: str):
-    try:
-        return User.query.get(int(user_id))
-    except Exception:
-        return None
+def load_user(user_id):
+    """Load user by ID for Flask-Login"""
+    return db.session.get(User, int(user_id))
 
-# Create tables on startup
-with app.app_context():
-    db.create_all()
-
-# Load spaCy once
-nlp = get_nlp()
-
-# ---- helpers (fallback graph builders) ----
-def nx_to_vis_tree(T: nx.DiGraph):
-    nodes = [{"id": str(n), "label": str(n)} for n in T.nodes()]
-    edges = []
-    for u, v, d in T.edges(data=True):
-        w = d.get("weight", 1)
-        label = f"w={w}" if w and w > 1 else ""
-        edges.append({"from": str(u), "to": str(v), "label": label})
-    return nodes, edges
-
-def edges_to_vis(edges):
-    nodes = set()
-    vis_edges = []
-    for e in edges:
-        s = str(e["source"])
-        t = str(e["target"])
-        nodes.add(s)
-        nodes.add(t)
-        vis_edges.append({"from": s, "to": t, "label": str(e.get("label", ""))})
-    vis_nodes = [{"id": n, "label": n} for n in sorted(nodes)]
-    return vis_nodes, vis_edges
-
-# ---- Routes ----
+# ========== FRONTEND ROUTES ==========
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    """Serve main index page"""
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
-@app.post("/api/process")
-def process_notes():
-    # Optional gate
-    if REQUIRE_LOGIN_FOR_OCR and not current_user.is_authenticated:
-        return jsonify({"error": "Login required"}), 401
+@app.route("/<path:filename>")
+def serve_static(filename):
+    """Serve static files from frontend folder"""
+    try:
+        return send_from_directory(FRONTEND_DIR, filename)
+    except Exception as e:
+        logger.error(f"File not found: {filename}")
+        return jsonify({"error": "File not found"}), 404
 
+# ========== REGISTER BLUEPRINTS ==========
+app.register_blueprint(auth_bp)
+
+# ========== MAIN PROCESSING API ==========
+@app.route("/api/process", methods=["POST"])
+def api_process():
+    """
+    Main API endpoint for processing uploaded notes
+    Uses Google Vision OCR + Gemini AI for intelligent processing
+    """
     try:
         files = request.files.getlist("files")
-        if not files:
-            logger.warning("No files uploaded")
+        if not files or len(files) == 0:
             return jsonify({"error": "No files uploaded"}), 400
 
+        ocr_engine = request.form.get("ocr_engine", "gcv")
         lang = request.form.get("lang", "en")
-        try:
-            top_k = int(request.form.get("top_k", "15"))
-        except ValueError:
-            top_k = 15
+        top_k = int(request.form.get("top_k", 12))
+        summary_level = request.form.get("summary_level", "normal")
 
-        ocr_engine = (request.form.get("ocr_engine", "gcv") or "gcv").lower()
-        
         logger.info(f"Processing {len(files)} files with engine: {ocr_engine}, lang: {lang}")
 
-        cfg = OCRConfig(
-            engine=ocr_engine,
-            lang=lang,
-            dpi=400,
-            deskew=True,
-            denoise=True,
-            binarize=True,
-            morph=True,
-            merge_columns=True,
-            strip_headers_footers=True,
-            drop_low_conf=0.0,
-        )
+        all_text: list[str] = []
+        file_results: list[dict] = []
 
-        # OCR all uploads
-        import tempfile
-        extracted_texts, engines_used = [], []
-        total_pages = 0
+        # ========== STEP 1: OCR EXTRACTION ==========
+        for file in files:
+            if not file or not file.filename:
+                continue
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            for f in files:
-                path = Path(tmpdir) / (f.filename or "upload")
-                f.save(str(path))
-                
-                logger.info(f"Processing file: {f.filename}")
-                
-                try:
-                    res = extract_text_smart(str(path), cfg)
-                except Exception as e:
-                    logger.warning(f"OCR failed with {ocr_engine}: {str(e)}")
-                    if ocr_engine == "gcv":
-                        logger.info("Falling back to Tesseract")
-                        cfg2 = OCRConfig(**{**cfg.__dict__, "engine": "tesseract"})
-                        res = extract_text_smart(str(path), cfg2)
-                    else:
-                        raise
+            filename = file.filename
+            logger.info(f"Processing file: {filename}")
 
-                extracted_texts.append(res["text"])
-                engines_used.append(res["engine_used"])
-                total_pages += int(res.get("pages", 0) or 0)
+            suffix = Path(filename).suffix.lower()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                file.save(tmp.name)
+                temp_path = tmp.name
 
-        raw_text = "\n\n".join(t for t in extracted_texts if t).strip()
-        
-        if not raw_text:
-            logger.error("No text detected from OCR")
-            return jsonify({"error": "No text detected. Try clearer scans or check Vision credentials."}), 200
+            try:
+                cfg = OCRConfig(
+                    engine=ocr_engine,
+                    lang=lang,
+                    dpi=400,
+                    deskew=True,
+                    denoise=True,
+                    binarize=True,
+                    morph=True,
+                )
 
-        logger.info(f"Extracted {len(raw_text)} characters from {total_pages} pages")
+                raw_text = extract_text_smart(temp_path, cfg)
 
-        # ✅ Fixed: model_name parameter (was incorrectly placed)
-        llm = llm_clean_and_structure(
-            raw_text,
-            summary_level=request.form.get("summary_level", "normal"),
-            top_k_concepts=top_k,
-            model_name="gemini-2.5-flash"  # Fixed: was request.form.get("gemini-1.5-flash")
-        )
+                if isinstance(raw_text, dict):
+                    logger.warning("extract_text_smart returned dict; using 'text' field")
+                    raw_text = str(raw_text.get("text", ""))
 
-        cleaned_text = (llm.get("clean_text") or raw_text).strip()
+                if not raw_text or len(raw_text.strip()) < 10:
+                    logger.warning(f"No text extracted from {filename}")
+                    file_results.append({
+                        "filename": filename,
+                        "status": "no_text",
+                        "text_length": 0,
+                    })
+                    continue
 
-        # Top concepts: Gemini-first with filtering
-        llm_concepts = filter_concepts(llm.get("concepts"), top_k=top_k)
-        if llm_concepts:
-            keyphrases = [{"phrase": c, "score": float(f"{1.0 - i*0.01:.2f}")} for i, c in enumerate(llm_concepts)]
-            kp_list = [k["phrase"] for k in keyphrases]
-        else:
-            sentences_tmp = split_sentences(cleaned_text, nlp)
-            keyphrases_scored = extract_keyphrases(cleaned_text, nlp, top_k=top_k)
-            keyphrases = [{"phrase": p, "score": s} for p, s in keyphrases_scored]
-            kp_list = [kp for kp, _ in keyphrases_scored]
+                logger.info(f"✅ Extracted {len(raw_text)} characters from {filename}")
 
-        # Mindmap: Gemini bullets -> tree (fallback to co-occurrence)
-        mm = bullets_to_graph(llm.get("bullets") or [])
-        if not mm["nodes"]:
-            sentences = split_sentences(cleaned_text, nlp)
-            G_cooc = build_cooccurrence_graph(sentences, kp_list)
-            root = kp_list[0] if kp_list else None
-            T_tree = build_hierarchy_tree(G_cooc, root=root)
-            nodes, edges = nx_to_vis_tree(T_tree)
-            mm = {"root": root, "nodes": nodes, "edges": edges}
+                if len(raw_text) > 50000:
+                    logger.warning(f"Text too long ({len(raw_text)} chars), truncating to 50k")
+                    raw_text = raw_text[:50000] + "\n\n[... truncated for processing ...]"
 
-        # Flowchart: Gemini relations -> graph (fallbacks)
-        fc = relations_to_graph(llm.get("relations") or [])
-        if not fc["nodes"]:
-            fc = {"nodes": mm["nodes"], "edges": mm["edges"]}
-        if not fc["nodes"]:
-            sentences = split_sentences(cleaned_text, nlp)
-            G = build_cooccurrence_graph(sentences, kp_list)
-            svo_edges = extract_svo_edges(cleaned_text, kp_list, nlp)
-            if not svo_edges:
-                svo_edges = [{"source": u, "target": v, "label": f"w={d.get('weight',1)}"}
-                             for u, v, d in G.edges(data=True)]
-            nodes, edges = edges_to_vis(svo_edges)
-            fc = {"nodes": nodes, "edges": edges}
+                all_text.append(raw_text)
+                file_results.append({
+                    "filename": filename,
+                    "status": "success",
+                    "text_length": len(raw_text),
+                })
 
-        engine_used = list(dict.fromkeys(engines_used or ["none"]))[0]
-        
-        logger.info(f"Successfully processed request - Engine: {engine_used}, Concepts: {len(keyphrases)}")
+            except Exception as e:
+                logger.error(f"Error processing {filename}: {e}")
+                file_results.append({
+                    "filename": filename,
+                    "status": "error",
+                    "error": str(e),
+                })
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)
+                    except:
+                        pass
 
-        return jsonify({
-            "text": cleaned_text,
-            "keyphrases": keyphrases,
-            "mindmap": mm,
-            "flowchart": fc,
-            "llm": llm,
-            "meta": {
-                "images_processed": total_pages,
-                "ocr_engine": engine_used,
-                "llm_provider": "gemini" if os.environ.get("GEMINI_API_KEY") else "fallback",
-                "raw_excerpt": raw_text[:500],
-                "user": current_user.username if current_user.is_authenticated else None
+        combined_text = "\n\n".join(all_text)
+        if not combined_text.strip():
+            return jsonify({
+                "error": "No text could be extracted from any file",
+                "files": file_results,
+            }), 400
+
+        logger.info(f"Total extracted text: {len(combined_text)} characters")
+
+        # ========== STEP 2: GEMINI AI PROCESSING ==========
+        try:
+            text_for_llm = combined_text[:20000]
+            logger.info("🤖 Sending to Gemini AI for processing...")
+            structured = llm_clean_and_structure(text_for_llm, summary_level=summary_level)
+            
+            gemini_concepts = structured.get("bullet_points", [])
+            gemini_relations = structured.get("relations", [])
+            
+            logger.info(f"✅ Gemini provided {len(gemini_concepts)} concepts, {len(gemini_relations)} relationships")
+            
+        except Exception as e:
+            logger.error(f"⚠️ Gemini processing failed: {e}")
+            structured = {
+                "clean_text": combined_text[:10000],
+                "summary": "Text extracted successfully. AI structuring unavailable.",
+                "bullet_points": [],
+                "relations": [],
             }
-        })
+            gemini_concepts = []
+            gemini_relations = []
+
+        clean_text = structured.get("clean_text") or combined_text[:50000]
+
+        # ========== STEP 3: EXTRACT KEY CONCEPTS ==========
+        keyphrases = []
+        
+        if gemini_concepts:
+            for i, concept in enumerate(gemini_concepts[:top_k]):
+                concept_clean = concept.strip()
+                if len(concept_clean) >= 3:
+                    keyphrases.append({
+                        "phrase": concept_clean,
+                        "score": 1.0 - (i * 0.05)
+                    })
+            logger.info(f"✅ Using {len(keyphrases)} concepts from Gemini")
+        
+        if not keyphrases:
+            try:
+                logger.info("📊 Falling back to spaCy NLP...")
+                nlp_model = get_nlp()
+                doc = nlp_model(clean_text[:30000])
+                keyphrases = extract_keyphrases(doc, top_k=top_k)
+                
+                filtered = []
+                seen = set()
+                for kp in keyphrases:
+                    phrase = (kp.get("phrase") or "").strip()
+                    if phrase and len(phrase) >= 3 and phrase.lower() not in seen:
+                        seen.add(phrase.lower())
+                        filtered.append(kp)
+                
+                keyphrases = filtered
+                logger.info(f"✅ NLP extracted {len(keyphrases)} concepts")
+                
+            except Exception as e:
+                logger.error(f"❌ NLP also failed: {e}")
+                keyphrases = []
+
+        if not keyphrases:
+            logger.warning("⚠️ No concepts extracted, using generic fallback")
+            keyphrases = [
+                {"phrase": "Document Overview", "score": 1.0},
+                {"phrase": "Main Topics", "score": 0.8},
+                {"phrase": "Key Points", "score": 0.6},
+            ]
+
+        # ========== STEP 4: BUILD MINDMAP WITH GEMINI ==========
+        try:
+            logger.info("🧠 Building mindmap with Gemini AI...")
+            
+            gemini_mindmap = extract_mindmap_with_gemini(clean_text, max_concepts=15)
+            
+            if gemini_mindmap and gemini_mindmap.get('central'):
+                graph = nx.DiGraph()
+                central = gemini_mindmap['central']
+                graph.add_node(central)
+                
+                for branch in gemini_mindmap.get('branches', []):
+                    branch_name = branch.get('name', '')
+                    if branch_name:
+                        graph.add_node(branch_name)
+                        graph.add_edge(central, branch_name)
+                        
+                        for sub in branch.get('subs', []):
+                            if sub:
+                                graph.add_node(sub)
+                                graph.add_edge(branch_name, sub)
+                
+                logger.info(f"✅ Built mindmap from Gemini: {len(graph.nodes())} nodes")
+            else:
+                raise Exception("Gemini mindmap structure invalid")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Gemini mindmap failed: {e}, using concept-based structure")
+            
+            graph = nx.DiGraph()
+            
+            if keyphrases and len(keyphrases) > 0:
+                root = keyphrases[0]["phrase"]
+                graph.add_node(root)
+                
+                level1 = [kp["phrase"] for kp in keyphrases[1:5]]
+                for branch in level1:
+                    graph.add_node(branch)
+                    graph.add_edge(root, branch)
+                
+                remaining = [kp["phrase"] for kp in keyphrases[5:]]
+                if level1:
+                    for idx, sub in enumerate(remaining):
+                        parent = level1[idx % len(level1)]
+                        graph.add_node(sub)
+                        graph.add_edge(parent, sub)
+            else:
+                graph.add_node("Content")
+
+        logger.info(f"📊 Final graph: {len(graph.nodes())} nodes, {len(graph.edges())} edges")
+
+        # ========== STEP 5: CONVERT TO VIS.JS FORMAT WITH SANITIZATION ==========
+        node_list = list(graph.nodes())
+        node_to_id = {node: str(i) for i, node in enumerate(node_list)}
+
+        def sanitize_label(label):
+            """Clean label to prevent JavaScript regex errors"""
+            if not label:
+                return "Node"
+            
+            label = str(label)
+            
+            # Remove problematic regex special characters
+            label = label.replace('(', '').replace(')', '')
+            label = label.replace('[', '').replace(']', '')
+            label = label.replace('{', '').replace('}', '')
+            label = label.replace('/', ' ').replace('\\', ' ')
+            label = label.replace('$', '').replace('^', '')
+            label = label.replace('*', '').replace('+', '')
+            label = label.replace('?', '').replace('|', '')
+            
+            # Truncate if too long
+            if len(label) > 50:
+                label = label[:47] + "..."
+            
+            # Clean up spaces
+            label = ' '.join(label.split())
+            
+            return label.strip() if label.strip() else "Node"
+
+        mindmap_data = {
+            "nodes": [
+                {
+                    "id": node_to_id[node], 
+                    "label": sanitize_label(node)
+                }
+                for node in node_list
+            ],
+            "edges": [
+                {
+                    "from": node_to_id[u], 
+                    "to": node_to_id[v], 
+                    "label": ""
+                }
+                for u, v in graph.edges()
+            ],
+        }
+
+        logger.info(f"📊 Mindmap data prepared: {len(mindmap_data['nodes'])} nodes, {len(mindmap_data['edges'])} edges")
+        
+        # Debug: Show sample labels
+        if mindmap_data['nodes']:
+            sample_labels = [n['label'] for n in mindmap_data['nodes'][:3]]
+            logger.info(f"Sample labels: {sample_labels}")
+
+        # ========== STEP 6: PREPARE RESPONSE ==========
+        response_data = {
+            "text": clean_text[:5000],
+            "summary": structured.get("summary", "")[:1000],
+            "keyphrases": keyphrases[:top_k],
+            "mindmap": mindmap_data,
+            "meta": {
+                "ocr_engine": ocr_engine,
+                "files_processed": len(file_results),
+                "files_success": sum(1 for f in file_results if f["status"] == "success"),
+                "total_chars": len(combined_text),
+                "concept_count": len(keyphrases),
+                "graph_nodes": len(node_list),
+                "graph_edges": len(graph.edges()),
+                "used_gemini_concepts": len(gemini_concepts) > 0,
+                "used_gemini_mindmap": gemini_mindmap is not None if 'gemini_mindmap' in locals() else False,
+            },
+            "files": file_results,
+        }
+
+        logger.info(f"✅ Processing complete! {len(mindmap_data['nodes'])} nodes, {len(keyphrases)} concepts")
+        return jsonify(response_data), 200
 
     except Exception as e:
-        logger.error(f"Processing error: {str(e)}", exc_info=True)
+        logger.exception(f"❌ Critical processing error: {e}")
+        return jsonify({
+            "error": str(e),
+            "type": type(e).__name__,
+        }), 500
+
+@app.route("/api/export/pdf", methods=["POST"])
+def api_export_pdf():
+    """Export mindmap results as comprehensive PDF report"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        logger.info("📄 Generating PDF export...")
+        
+        pdf_bytes = export_results_to_pdf(data)
+        
+        logger.info(f"✅ PDF exported: {len(pdf_bytes)} bytes")
+        
+        return pdf_bytes, 200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename=mindmap-results.pdf',
+            'Content-Length': len(pdf_bytes),
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ PDF export error: {e}")
         return jsonify({"error": str(e)}), 500
+# ========== HEALTH CHECK ==========
+@app.route("/api/health")
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "ok",
+        "frontend_dir": str(FRONTEND_DIR),
+        "frontend_exists": FRONTEND_DIR.exists(),
+        "gcv_ready": os.getenv("GOOGLE_APPLICATION_CREDENTIALS") is not None,
+        "gemini_ready": os.getenv("GEMINI_API_KEY") is not None
+    }), 200
 
-@app.get("/healthz")
-def healthz():
-    msgs = []
-    if not os.environ.get("GEMINI_API_KEY"):
-        msgs.append("GEMINI_API_KEY not set (LLM will fallback).")
-    if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-        msgs.append("GOOGLE_APPLICATION_CREDENTIALS not set (Vision will fail; tesseract fallback).")
-    return jsonify({"ok": True, "messages": msgs, "frontend": str(FRONTEND_DIR)})
-
-# ✅ Register blueprints (THIS WAS MISSING!)
-app.register_blueprint(auth_bp)
-app.register_blueprint(ocr_bp)
-
+# ========== RUN APP ==========
 if __name__ == "__main__":
-    if os.environ.get("GEMINI_API_KEY"):
-        print("✅ Gemini API ready")
+    # Check credentials
+    gcv_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if gcv_creds and Path(gcv_creds).exists():
+        logger.info("✅ Google Vision credentials detected")
     else:
-        print("⚠️ GEMINI_API_KEY not set; deterministic fallback")
+        logger.warning("⚠️ Google Vision credentials not found")
     
-    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-        print("✅ Google Vision credentials detected")
+    if os.getenv("GEMINI_API_KEY"):
+        logger.info("✅ Gemini API ready")
     else:
-        print("⚠️ GOOGLE_APPLICATION_CREDENTIALS not set; choose 'tesseract' or expect fallback")
+        logger.warning("⚠️ Gemini API key not set")
     
-    if os.name == "nt" and not os.environ.get("POPPLER_PATH"):
-        print("ℹ️ Set POPPLER_PATH to your Poppler 'bin' folder (Windows)")
+    if FRONTEND_DIR.exists():
+        logger.info(f"✅ Frontend directory found: {FRONTEND_DIR}")
+        html_files = list(FRONTEND_DIR.glob("*.html"))
+        logger.info(f"   HTML files: {[f.name for f in html_files]}")
+    else:
+        logger.error(f"❌ Frontend directory not found: {FRONTEND_DIR}")
     
-    print(f"DB: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    print(f"Require login for OCR: {REQUIRE_LOGIN_FOR_OCR}")
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    logger.info(f"Require login for OCR: {os.getenv('REQUIRE_LOGIN', 'false').lower() == 'true'}")
+    
+    app.run(
+        debug=True,
+        host="127.0.0.1",
+        port=5000,
+        use_reloader=True
+    )

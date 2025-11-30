@@ -56,34 +56,58 @@ def register():
 
 @auth_bp.post("/login")
 def login():
-    identifier = (_get("identifier") or "").strip()  # can be email or username
+    identifier = (_get("identifier") or "").strip().lower()
     password = _get("password") or ""
-    remember = str(_get("remember") or "true").lower() in {"1", "true", "yes", "on"}
-
+    
     if not identifier or not password:
-        return jsonify({"ok": False, "error": "Identifier and password required"}), 400
-
-    u = User.query.filter(or_(User.email.ilike(identifier), User.username.ilike(identifier))).first()
-    if not u or not u.check_password(password):
+        return jsonify({"ok": False, "error": "Missing identifier or password"}), 400
+    
+    # Try to find user by email or username
+    user = User.query.filter(
+        or_(User.email == identifier, User.username == identifier)
+    ).first()
+    
+    if not user or not user.check_password(password):
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-
-    if not u.is_active:
-        return jsonify({"ok": False, "error": "Account is inactive"}), 403
-
-    u.last_login = datetime.utcnow()
+    
+    if not user.is_active:
+        return jsonify({"ok": False, "error": "Account disabled"}), 403
+    
+    # Update last login
+    user.last_login = datetime.utcnow()
     db.session.commit()
+    
+    # Log the user in with Flask-Login
+    login_user(user, remember=True)  # Add remember=True for persistent session
+    
+    return jsonify({
+        "ok": True,
+        "user": _serialize_user(user),
+        "message": "Login successful"
+    }), 200
 
-    login_user(u, remember=remember)
-    return jsonify({"ok": True, "user": _serialize_user(u)})
 
 @auth_bp.post("/logout")
 @login_required
 def logout():
+    """Log out the current user"""
     logout_user()
-    return jsonify({"ok": True})
+    return jsonify({
+        "ok": True,
+        "message": "Logged out successfully"
+    }), 200
+
 
 @auth_bp.get("/me")
-def me():
-    if not current_user.is_authenticated:
-        return jsonify({"ok": False, "user": None}), 200
-    return jsonify({"ok": True, "user": _serialize_user(current_user)}), 200
+def get_current_user():
+    """Get current logged-in user info"""
+    if current_user.is_authenticated:
+        return jsonify({
+            "ok": True,
+            "user": _serialize_user(current_user)
+        }), 200
+    else:
+        return jsonify({
+            "ok": False,
+            "error": "Not authenticated"
+        }), 401

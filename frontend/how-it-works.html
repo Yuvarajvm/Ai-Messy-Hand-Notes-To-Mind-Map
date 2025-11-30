@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How It Works | AI Notes → Mindmap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-sage: #5A8A7A;
+            --dark-sage: #3A6768;
+            --light-sage: #6AA090;
+            --warm-teal: #4A7C7E;
+            --warm-beige: #F5F1E8;
+            --soft-cream: #FAF8F3;
+            --warm-white: #FFFCF7;
+            --charcoal: #2C3333;
+            --text-dark: #2B3A3A;
+            --text-medium: #6B7B7B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--warm-beige);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* Navigation - same as before */
+        nav {
+            background: rgba(255, 252, 247, 0.98);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 0.9375rem;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-sage);
+        }
+
+        .btn-nav {
+            background: var(--primary-sage);
+            color: var(--warm-white) !important;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--primary-sage);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 65px;
+            left: 0;
+            right: 0;
+            background: rgba(255, 252, 247, 0.98);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+            z-index: 999;
+            padding: 1rem;
+        }
+
+        .mobile-nav.active {
+            display: block;
+        }
+
+        .mobile-nav a {
+            display: block;
+            padding: 0.875rem 1rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .mobile-nav .btn-nav {
+            display: block;
+            text-align: center;
+            margin-top: 0.5rem;
+            border: none;
+        }
+
+        /* Hero */
+        .page-hero {
+            max-width: 900px;
+            margin: 4rem auto 3rem;
+            padding: 0 1.5rem;
+            text-align: center;
+        }
+
+        .page-hero h1 {
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: var(--charcoal);
+            margin-bottom: 1rem;
+        }
+
+        .page-hero p {
+            font-size: 1.125rem;
+            color: var(--text-medium);
+        }
+
+        /* Steps */
+        .steps-container {
+            max-width: 900px;
+            margin: 4rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .step {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            align-items: center;
+        }
+
+        .step-number {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-size: 2rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+            background: rgba(255, 252, 247, 0.95);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .step-content h2 {
+            font-size: 1.5rem;
+            color: var(--charcoal);
+            margin-bottom: 0.75rem;
+        }
+
+        .step-content p {
+            color: var(--text-medium);
+            line-height: 1.7;
+        }
+
+        /* CTA */
+        .cta-section {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, var(--primary-sage), var(--warm-teal));
+            border-radius: 20px;
+            text-align: center;
+            color: var(--warm-white);
+        }
+
+        .cta-section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-cta {
+            background: var(--warm-white);
+            color: var(--primary-sage);
+            padding: 1rem 2.5rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.125rem;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .page-hero h1 {
+                font-size: 2rem;
+            }
+
+            .step {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .step-number {
+                width: 70px;
+                height: 70px;
+                font-size: 1.75rem;
+            }
+
+            .cta-section {
+                margin: 3rem 1.5rem;
+                padding: 2rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <div class="logo-icon">AI</div>
+                <span>Notes → Mindmap</span>
+            </a>
+            <div class="nav-links">
+                <a href="features.html">Features</a>
+                <a href="how-it-works.html" class="active">How It Works</a>
+                <a href="pricing.html">Pricing</a>
+                <a href="login.html" class="btn-nav">Sign In</a>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav" id="mobileNav">
+        <a href="features.html">Features</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="login.html" class="btn-nav">Sign In</a>
+    </div>
+
+    <section class="page-hero">
+        <h1>How It Works</h1>
+        <p>Transform your messy notes into structured mindmaps in just four simple steps.</p>
+    </section>
+
+    <section class="steps-container">
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <h2>Upload Your Notes</h2>
+                <p>Take a photo of your handwritten notes, classroom board, or upload scanned documents. Our system supports JPG, PNG, PDF, and HEIC formats. You can upload multiple files at once for batch processing.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h2>AI-Powered OCR Extraction</h2>
+                <p>Our Google Vision OCR engine analyzes your images and extracts text with exceptional accuracy. It handles messy handwriting, low-light photos, and even recognizes diagrams and mathematical equations.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <h2>Intelligent Processing</h2>
+                <p>Advanced AI models analyze the extracted text to identify key concepts, relationships, and hierarchies. The system automatically organizes information into structured topics and subtopics.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <h2>Get Your Mindmap</h2>
+                <p>Receive an interactive mindmap with color-coded branches, key topics highlighted, and a clean text summary. You can edit, reorganize, and export your mindmap in multiple formats including PNG, PDF, and JSON.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>Ready to Get Started?</h2>
+        <p style="margin-bottom: 2rem; opacity: 0.95;">Try it now for free — no credit card required</p>
+        <a href="/" class="btn-cta">Upload Your First Note</a>
+    </section>
+
+    <script>
+        function toggleMobileMenu() {
+            document.getElementById('mobileNav').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

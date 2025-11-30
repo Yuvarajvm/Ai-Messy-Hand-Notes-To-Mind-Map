@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing | AI Notes → Mindmap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-sage: #5A8A7A;
+            --dark-sage: #3A6768;
+            --light-sage: #6AA090;
+            --warm-teal: #4A7C7E;
+            --warm-beige: #F5F1E8;
+            --soft-cream: #FAF8F3;
+            --warm-white: #FFFCF7;
+            --charcoal: #2C3333;
+            --text-dark: #2B3A3A;
+            --text-medium: #6B7B7B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--warm-beige);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* Navigation - same as before */
+        nav {
+            background: rgba(255, 252, 247, 0.98);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 0.9375rem;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-sage);
+        }
+
+        .btn-nav {
+            background: var(--primary-sage);
+            color: var(--warm-white) !important;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--primary-sage);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 65px;
+            left: 0;
+            right: 0;
+            background: rgba(255, 252, 247, 0.98);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+            z-index: 999;
+            padding: 1rem;
+        }
+
+        .mobile-nav.active {
+            display: block;
+        }
+
+        .mobile-nav a {
+            display: block;
+            padding: 0.875rem 1rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .mobile-nav .btn-nav {
+            display: block;
+            text-align: center;
+            margin-top: 0.5rem;
+            border: none;
+        }
+
+        /* Hero */
+        .page-hero {
+            max-width: 900px;
+            margin: 4rem auto 3rem;
+            padding: 0 1.5rem;
+            text-align: center;
+        }
+
+        .page-hero h1 {
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: var(--charcoal);
+            margin-bottom: 1rem;
+        }
+
+        .page-hero p {
+            font-size: 1.125rem;
+            color: var(--text-medium);
+        }
+
+        /* Pricing Cards */
+        .pricing-container {
+            max-width: 1200px;
+            margin: 3rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .pricing-card {
+            background: rgba(255, 252, 247, 0.95);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 32px rgba(90, 138, 122, 0.16);
+        }
+
+        .pricing-card.popular {
+            border: 2px solid var(--primary-sage);
+            box-shadow: 0 8px 32px rgba(90, 138, 122, 0.2);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: var(--primary-sage);
+            color: var(--warm-white);
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--charcoal);
+            margin-bottom: 0.5rem;
+        }
+
+        .plan-price {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            margin-bottom: 0.5rem;
+        }
+
+        .plan-price span {
+            font-size: 1.125rem;
+            color: var(--text-medium);
+            font-weight: 400;
+        }
+
+        .plan-description {
+            color: var(--text-medium);
+            margin-bottom: 2rem;
+            font-size: 0.9375rem;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .plan-features li {
+            padding: 0.625rem 0 0.625rem 2rem;
+            position: relative;
+            color: var(--text-dark);
+            font-size: 0.9375rem;
+        }
+
+        .plan-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--primary-sage);
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .btn-plan {
+            width: 100%;
+            background: var(--primary-sage);
+            color: var(--warm-white);
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .btn-plan:hover {
+            background: var(--dark-sage);
+            transform: translateY(-2px);
+        }
+
+        .btn-plan.secondary {
+            background: var(--soft-cream);
+            color: var(--primary-sage);
+            border: 2px solid var(--primary-sage);
+        }
+
+        .btn-plan.secondary:hover {
+            background: var(--primary-sage);
+            color: var(--warm-white);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .page-hero h1 {
+                font-size: 2rem;
+            }
+
+            .pricing-container {
+                grid-template-columns: 1fr;
+            }
+
+            .plan-price {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <div class="logo-icon">AI</div>
+                <span>Notes → Mindmap</span>
+            </a>
+            <div class="nav-links">
+                <a href="features.html">Features</a>
+                <a href="how-it-works.html">How It Works</a>
+                <a href="pricing.html" class="active">Pricing</a>
+                <a href="login.html" class="btn-nav">Sign In</a>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav" id="mobileNav">
+        <a href="features.html">Features</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="login.html" class="btn-nav">Sign In</a>
+    </div>
+
+    <section class="page-hero">
+        <h1>Simple, Transparent Pricing</h1>
+        <p>Choose the plan that fits your needs. Upgrade or downgrade anytime.</p>
+    </section>
+
+    <section class="pricing-container">
+        <div class="pricing-card">
+            <div class="plan-name">Free</div>
+            <div class="plan-price">$0<span>/month</span></div>
+            <div class="plan-description">Perfect for trying out the platform</div>
+            <ul class="plan-features">
+                <li>5 notes per month</li>
+                <li>Basic OCR processing</li>
+                <li>Standard mindmap generation</li>
+                <li>Export as PNG</li>
+                <li>Email support</li>
+            </ul>
+            <a href="/" class="btn-plan secondary">Get Started</a>
+        </div>
+
+        <div class="pricing-card popular">
+            <div class="popular-badge">Most Popular</div>
+            <div class="plan-name">Pro</div>
+            <div class="plan-price">$9<span>/month</span></div>
+            <div class="plan-description">For students and professionals</div>
+            <ul class="plan-features">
+                <li>100 notes per month</li>
+                <li>Advanced OCR with diagrams</li>
+                <li>AI-enhanced mindmaps</li>
+                <li>Export all formats</li>
+                <li>Priority processing</li>
+                <li>Email notifications</li>
+                <li>Priority support</li>
+            </ul>
+            <a href="/" class="btn-plan">Start Free Trial</a>
+        </div>
+
+        <div class="pricing-card">
+            <div class="plan-name">Team</div>
+            <div class="plan-price">$29<span>/month</span></div>
+            <div class="plan-description">For teams and educators</div>
+            <ul class="plan-features">
+                <li>Unlimited notes</li>
+                <li>All Pro features</li>
+                <li>Team collaboration</li>
+                <li>Admin dashboard</li>
+                <li>API access</li>
+                <li>Custom branding</li>
+                <li>Dedicated support</li>
+            </ul>
+            <a href="/" class="btn-plan">Contact Sales</a>
+        </div>
+    </section>
+
+    <script>
+        function toggleMobileMenu() {
+            document.getElementById('mobileNav').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

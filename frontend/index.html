@@ -1,86 +1,1452 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>AI Notes → Mindmap & Flowchart</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="/auth.css" />
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Notes → Mindmap | Transform Handwritten Notes into Structured Knowledge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-sage: #5A8A7A;
+            --dark-sage: #3A6768;
+            --light-sage: #6AA090;
+            --warm-teal: #4A7C7E;
+            --accent-sage: #ACAD97;
+            --warm-beige: #F5F1E8;
+            --soft-cream: #FAF8F3;
+            --warm-white: #FFFCF7;
+            --charcoal: #2C3333;
+            --soft-charcoal: #3E4A4A;
+            --text-dark: #2B3A3A;
+            --text-medium: #6B7B7B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--warm-beige);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .animated-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.15;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .particle-1 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, var(--light-sage), transparent);
+            top: 10%;
+            left: -10%;
+            animation-delay: 0s;
+            animation-duration: 25s;
+        }
+
+        .particle-2 {
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, var(--warm-teal), transparent);
+            top: 60%;
+            right: -5%;
+            animation-delay: 5s;
+            animation-duration: 30s;
+        }
+
+        .particle-3 {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, var(--accent-sage), transparent);
+            top: 40%;
+            left: 50%;
+            animation-delay: 10s;
+            animation-duration: 35s;
+        }
+
+        .particle-4 {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, var(--primary-sage), transparent);
+            bottom: 10%;
+            left: 20%;
+            animation-delay: 15s;
+            animation-duration: 28s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.1;
+            }
+            25% {
+                transform: translate(30px, -50px) scale(1.1);
+                opacity: 0.15;
+            }
+            50% {
+                transform: translate(-20px, -100px) scale(0.9);
+                opacity: 0.12;
+            }
+            75% {
+                transform: translate(40px, -70px) scale(1.05);
+                opacity: 0.18;
+            }
+        }
+
+        .gradient-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, 
+                rgba(250, 248, 243, 0.6) 0%, 
+                rgba(245, 241, 232, 0.4) 50%, 
+                rgba(255, 252, 247, 0.6) 100%);
+            z-index: 1;
+            pointer-events: none;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.8; }
+        }
+
+        .content {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(255, 252, 247, 0.98);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 0.9375rem;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-sage);
+        }
+
+        .btn-nav {
+            background: var(--primary-sage);
+            color: var(--warm-white) !important;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.9375rem;
+        }
+
+        .btn-nav:hover {
+            background: var(--dark-sage);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--primary-sage);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 65px;
+            left: 0;
+            right: 0;
+            background: rgba(255, 252, 247, 0.98);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+            z-index: 999;
+            padding: 1rem;
+        }
+
+        .mobile-nav.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .mobile-nav a {
+            display: block;
+            padding: 0.875rem 1rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+            transition: background 0.3s;
+        }
+
+        .mobile-nav a:hover {
+            background: var(--soft-cream);
+            color: var(--primary-sage);
+        }
+
+        .mobile-nav .btn-nav {
+            display: block;
+            text-align: center;
+            margin-top: 0.5rem;
+            border: none;
+        }
+
+        /* Hero Section */
+        .hero {
+            max-width: 1400px;
+            margin: 3rem auto 2rem;
+            padding: 0 1.5rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--charcoal);
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .hero .highlight {
+            background: linear-gradient(135deg, var(--primary-sage), var(--warm-teal));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            color: var(--text-medium);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+            line-height: 1.7;
+        }
+
+        /* Upload Section */
+        .upload-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .upload-card {
+            background: rgba(255, 252, 247, 0.95);
+            border-radius: 20px;
+            padding: 2rem 1.5rem;
+            box-shadow: 0 8px 32px rgba(90, 138, 122, 0.16);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(90, 138, 122, 0.15);
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-sage), var(--light-sage), var(--warm-teal));
+            animation: gradientSlide 3s ease infinite;
+        }
+
+        @keyframes gradientSlide {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .upload-zone {
+            border: 2px dashed rgba(90, 138, 122, 0.3);
+            border-radius: 16px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: var(--soft-cream);
+            position: relative;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--primary-sage);
+            background: rgba(90, 138, 122, 0.05);
+            transform: scale(1.01);
+        }
+
+        .upload-icon {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(90, 138, 122, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(90, 138, 122, 0);
+            }
+        }
+
+        .upload-zone h3 {
+            font-size: 1.375rem;
+            color: var(--charcoal);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-zone p {
+            color: var(--text-medium);
+            margin-bottom: 1.5rem;
+            font-size: 0.9375rem;
+        }
+
+        .file-types {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .file-type-badge {
+            background: rgba(90, 138, 122, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--primary-sage);
+            border: 1px solid rgba(90, 138, 122, 0.2);
+        }
+
+        .btn-upload {
+            background: var(--primary-sage);
+            color: var(--warm-white);
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-upload::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn-upload:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-upload:hover {
+            background: var(--dark-sage);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+        }
+
+        /* Features Section */
+        .features {
+            max-width: 1400px;
+            margin: 4rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: var(--charcoal);
+            margin-bottom: 2.5rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: rgba(255, 252, 247, 0.95);
+            padding: 1.75rem;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            transition: all 0.3s;
+            border: 1px solid rgba(90, 138, 122, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+            border-color: var(--primary-sage);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            margin-bottom: 1.25rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.125rem;
+            color: var(--charcoal);
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-medium);
+            line-height: 1.7;
+            font-size: 0.9375rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .preview-section.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-preview {
+            background: var(--soft-cream);
+            padding: 1rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-icon-small {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-sage);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            flex-shrink: 0;
+        }
+
+        .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--charcoal);
+            font-size: 0.9375rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            font-size: 0.8125rem;
+            color: var(--text-medium);
+        }
+
+        .remove-file {
+            background: none;
+            border: none;
+            color: var(--text-medium);
+            cursor: pointer;
+            font-size: 1.5rem;
+            transition: color 0.3s;
+            padding: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .remove-file:hover {
+            color: #C85A54;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .spinner {
+            border: 4px solid rgba(90, 138, 122, 0.2);
+            border-top: 4px solid var(--primary-sage);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Footer Section - Compact Version */
+        .footer {
+            background: rgba(255, 252, 247, 0.95);
+            border-top: 1px solid rgba(90, 138, 122, 0.15);
+            margin-top: 4rem;
+            padding: 2rem 0 1rem;
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .footer-top {
+            display: grid;
+            grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-about {
+            max-width: 320px;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-logo .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.8125rem;
+        }
+
+        .footer-description {
+            color: var(--text-medium);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 0.625rem;
+        }
+
+        .social-links a {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--soft-cream);
+            border-radius: 8px;
+            color: var(--text-medium);
+            transition: all 0.3s;
+        }
+
+        .social-links a:hover {
+            background: var(--primary-sage);
+            color: var(--warm-white);
+            transform: translateY(-2px);
+        }
+
+        .social-links a svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .footer-column h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--charcoal);
+            margin-bottom: 0.875rem;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-column ul li a {
+            color: var(--text-medium);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.3s;
+        }
+
+        .footer-column ul li a:hover {
+            color: var(--primary-sage);
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(90, 138, 122, 0.1);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .footer-bottom p {
+            color: var(--text-medium);
+            font-size: 0.8125rem;
+        }
+
+        .footer-badges {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(90, 138, 122, 0.08);
+            border-radius: 16px;
+            font-size: 0.75rem;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.875rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .upload-card {
+                padding: 1.75rem 1.25rem;
+            }
+
+            .upload-zone {
+                padding: 2rem 1rem;
+            }
+
+            .features h2 {
+                font-size: 1.75rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .particle {
+                opacity: 0.08;
+            }
+
+            .btn-upload {
+                padding: 0.875rem 1.5rem;
+                font-size: 0.9375rem;
+            }
+
+            .file-type-badge {
+                padding: 0.4rem 0.875rem;
+                font-size: 0.8125rem;
+            }
+
+            /* Footer Mobile */
+            .footer {
+                margin-top: 3rem;
+                padding: 1.75rem 0 1rem;
+            }
+
+            .footer-content {
+                padding: 0 1.5rem;
+            }
+
+            .footer-top {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .footer-about {
+                grid-column: 1 / -1;
+                max-width: 100%;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                text-align: center;
+                padding-top: 1.25rem;
+            }
+
+            .footer-badges {
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .footer-top {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .social-links {
+                justify-content: center;
+            }
+
+            .footer-column ul {
+                text-align: center;
+            }
+
+            .footer-column ul li {
+                margin-bottom: 0.375rem;
+            }
+        }
+
+        /* Touch Target Optimization for Mobile */
+        @media (max-width: 768px) {
+            .btn-nav {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .mobile-nav a {
+                min-height: 48px;
+                display: flex;
+                align-items: center;
+            }
+
+            .remove-file {
+                min-width: 44px;
+                min-height: 44px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .footer-top {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1.75rem;
+            }
+
+            .footer-about {
+                grid-column: 1 / -1;
+                max-width: 100%;
+            }
+        }
+                /* User Menu Hover Effect */
+        .user-dropdown button:hover {
+            background: var(--soft-cream) !important;
+            color: var(--primary-sage) !important;
+        }
+
+    </style>
 </head>
 <body>
-  <header class="site-header">
-    <h1>🧠 AI-Powered Notes → Mindmap & Flowchart</h1>
-  </header>
-
-  <section class="controls card">
-    <!-- Single OCR form -->
-    <form id="uploadForm" method="post" enctype="multipart/form-data">
-      <label class="file-label">
-        <span>Upload images or PDF</span>
-        <input type="file" id="files" name="files" multiple accept=".png,.jpg,.jpeg,.pdf" required />
-      </label>
-
-      <label class="control">
-        OCR Language:
-        <select name="lang" id="lang">
-          <!-- Backend maps 'en' → 'eng' for Tesseract automatically -->
-          <option value="en" selected>English (eng)</option>
-        </select>
-      </label>
-
-      <label class="control">
-        Top concepts:
-        <input type="number" id="top_k" name="top_k" min="5" max="30" value="15" />
-      </label>
-
-      <label class="control">
-        OCR Engine:
-        <select id="ocrEngine" name="ocr_engine">
-          <option value="gcv" selected>Google Vision (recommended)</option>
-          <option value="tesseract">Tesseract (offline fallback)</option>
-        </select>
-      </label>
-
-      <label class="control" title="For Tesseract only">
-        <input type="checkbox" id="messy" name="messy" value="true" />
-        Messy mode (line-by-line) [Tesseract only]
-      </label>
-
-      <button id="processBtn" type="submit" class="btn btn-primary">Process</button>
-      <span id="status" class="status"></span>
-    </form>
-  </section>
-
-  <section class="grid-two">
-    <div class="panel card">
-      <h2>Extracted Text</h2>
-      <textarea id="ocrText" rows="14" placeholder="OCR text will appear here..."></textarea>
+    <!-- Animated Background -->
+    <div class="animated-background">
+        <div class="particle particle-1"></div>
+        <div class="particle particle-2"></div>
+        <div class="particle particle-3"></div>
+        <div class="particle particle-4"></div>
     </div>
-    <div class="panel card">
-      <h2>Top Concepts</h2>
-      <ol id="concepts"></ol>
-    </div>
-  </section>
+    <div class="gradient-overlay"></div>
 
-  <section class="grid-two">
-    <div class="graph-panel card">
-      <h2>Mindmap</h2>
-      <div id="mindmap" class="graph"></div>
-    </div>
-    <div class="graph-panel card">
-      <h2>Flowchart</h2>
-      <div id="flowchart" class="graph"></div>
-    </div>
-  </section>
+    <!-- Content Wrapper -->
+    <div class="content">
+        <!-- Navigation -->
+        <nav>
+            <div class="nav-container">
+                <a href="/" class="logo">
+                    <div class="logo-icon">AI</div>
+                    <span>Notes → Mindmap</span>
+                </a>
+                <div class="nav-links">
+                    <a href="features.html">Features</a>
+                    <a href="how-it-works.html">How It Works</a>
+                    <a href="pricing.html">Pricing</a>
+                    <a href="auth.html" class="btn-nav">Sign In</a>
+                </div>
+                <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            </div>
+        </nav>
 
-  <footer class="site-footer">
-    <small>Tip: Clear scans and good lighting improve OCR quality. Printed text works best.</small>
-  </footer>
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav" id="mobileNav">
+            <a href="features.html">Features</a>
+            <a href="how-it-works.html">How It Works</a>
+            <a href="pricing.html">Pricing</a>
+            <a href="auth.html" class="btn-nav">Sign In</a>
+        </div>
 
-  <!-- App logic -->
-  <script src="app.js" defer></script>
-  <!-- Non-dismissible login/signup modal + gating -->
-  <script src="/auth.js" defer></script>
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Transform Your <span class="highlight">Messy Notes</span><br>Into Structured Knowledge</h1>
+            <p>Convert handwritten notes, classroom photos, and scanned documents into clean mindmaps and organized summaries using advanced AI-powered OCR.</p>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-container">
+            <div class="upload-card">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 32px; height: 32px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                    </div>
+                    <h3>Upload Your Notes</h3>
+                    <p>Drag and drop your files here, or click to browse</p>
+                    <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px;">
+                            <path fill-rule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l4.5 4.5a.75.75 0 01-1.06 1.06l-3.22-3.22V16.5a.75.75 0 01-1.5 0V4.81L8.03 8.03a.75.75 0 01-1.06-1.06l4.5-4.5zM3 15.75a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clip-rule="evenodd" />
+                        </svg>
+                        Choose Files
+                    </button>
+                    <input type="file" id="fileInput" accept="image/*,.pdf" multiple>
+                    <div class="file-types">
+                        <span class="file-type-badge">JPG</span>
+                        <span class="file-type-badge">PNG</span>
+                        <span class="file-type-badge">PDF</span>
+                        <span class="file-type-badge">HEIC</span>
+                    </div>
+                </div>
+
+                <!-- File Preview -->
+                <div class="preview-section" id="previewSection">
+                    <h3 style="margin-bottom: 1rem; color: var(--charcoal);">Selected Files</h3>
+                    <div id="fileList"></div>
+                    <button class="btn-upload" style="width: 100%; margin-top: 1rem; justify-content: center;" onclick="processFiles()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px;">
+                            <path fill-rule="evenodd" d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 01.75.75c0 5.056-2.383 9.555-6.084 12.436A6.75 6.75 0 019.75 22.5a.75.75 0 01-.75-.75v-4.131A15.838 15.838 0 016.382 15H2.25a.75.75 0 01-.75-.75 6.75 6.75 0 017.815-6.666zM15 6.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" clip-rule="evenodd" />
+                            <path d="M5.26 17.242a.75.75 0 10-.897-1.203 5.243 5.243 0 00-2.05 5.022.75.75 0 00.625.627 5.243 5.243 0 005.022-2.051.75.75 0 10-1.202-.897 3.744 3.744 0 01-3.008 1.51c0-1.23.592-2.323 1.51-3.008z" />
+                        </svg>
+                        Generate Mindmap
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div class="loading" id="loadingState">
+    <div class="spinner"></div>
+    <p style="margin-top: 1rem; color: var(--text-medium);" id="loadingMessage">
+        Extracting text with Google Vision OCR...
+    </p>
+    <div class="progress-wrapper" style="margin-top: 1rem; max-width: 260px; margin-left: auto; margin-right: auto;">
+        <div style="height: 6px; border-radius: 999px; background: rgba(90,138,122,0.15); overflow: hidden;">
+            <div id="progressBarFill"
+                 style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary-sage), var(--light-sage)); transition: width 0.3s ease;">
+            </div>
+        </div>
+        <div id="progressLabel"
+             style="margin-top: 0.25rem; font-size: 0.8125rem; color: var(--text-medium); text-align: center;">
+            0%
+        </div>
+    </div>
+</div>
+
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features" id="features">
+            <h2>Powerful Features for Modern Learners</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                        </svg>
+                    </div>
+                    <h3>AI-Enhanced OCR</h3>
+                    <p>Google Vision-powered text extraction handles messy handwriting, skewed pages, and low-light photos with exceptional accuracy.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                        </svg>
+                    </div>
+                    <h3>Smart Mindmaps</h3>
+                    <p>AI automatically identifies key concepts, relationships, and hierarchies to generate interactive visual mindmaps.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                        </svg>
+                    </div>
+                    <h3>Mobile Optimized</h3>
+                    <p>Capture notes on the go with your phone camera and process them instantly from any device.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                        </svg>
+                    </div>
+                    <h3>Fast Processing</h3>
+                    <p>Job queue architecture ensures quick turnaround times without blocking your workflow.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                        </svg>
+                    </div>
+                    <h3>Multiple Formats</h3>
+                    <p>Export your processed notes as mindmaps, flowcharts, text summaries, or structured outlines.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 28px; height: 28px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                    </div>
+                    <h3>Secure & Private</h3>
+                    <p>Your notes are processed securely with enterprise-grade encryption and privacy protection.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer Section -->
+        <footer class="footer">
+            <div class="footer-content">
+                <!-- Footer Top -->
+                <div class="footer-top">
+                    <div class="footer-column footer-about">
+                        <div class="footer-logo">
+                            <div class="logo-icon">AI</div>
+                            <span>AI Notes → Mindmap</span>
+                        </div>
+                        <p class="footer-description">Transform your handwritten notes into structured knowledge with AI-powered OCR and intelligent mindmap generation.</p>
+                        <div class="social-links">
+                            <a href="#" aria-label="Twitter">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                </svg>
+                            </a>
+                            <a href="#" aria-label="LinkedIn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                </svg>
+                            </a>
+                            <a href="#" aria-label="GitHub">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Product</h3>
+                        <ul>
+                            <li><a href="features.html">Features</a></li>
+                            <li><a href="how-it-works.html">How It Works</a></li>
+                            <li><a href="pricing.html">Pricing</a></li>
+                            <li><a href="#api">API Documentation</a></li>
+                            <li><a href="#changelog">Changelog</a></li>
+                            <li><a href="#roadmap">Roadmap</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Company</h3>
+                        <ul>
+                            <li><a href="#about">About Us</a></li>
+                            <li><a href="#blog">Blog</a></li>
+                            <li><a href="#careers">Careers</a></li>
+                            <li><a href="#press">Press Kit</a></li>
+                            <li><a href="#contact">Contact</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Resources</h3>
+                        <ul>
+                            <li><a href="#help">Help Center</a></li>
+                            <li><a href="#tutorials">Tutorials</a></li>
+                            <li><a href="#community">Community</a></li>
+                            <li><a href="#status">System Status</a></li>
+                            <li><a href="#feedback">Feedback</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Legal</h3>
+                        <ul>
+                            <li><a href="#terms">Terms of Service</a></li>
+                            <li><a href="#privacy">Privacy Policy</a></li>
+                            <li><a href="#cookies">Cookie Policy</a></li>
+                            <li><a href="#gdpr">GDPR</a></li>
+                            <li><a href="#security">Security</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Footer Bottom -->
+                <div class="footer-bottom">
+                    <p>&copy; 2025 AI Notes → Mindmap. All rights reserved.</p>
+                    <div class="footer-badges">
+                        <span class="badge">🔒 SSL Secured</span>
+                        <span class="badge">✓ GDPR Compliant</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const fileList = document.getElementById('fileList');
+        const loadingState = document.getElementById('loadingState');
+        let selectedFiles = [];
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const mobileNav = document.getElementById('mobileNav');
+            mobileNav.classList.toggle('active');
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const mobileNav = document.getElementById('mobileNav');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            
+            if (!mobileNav.contains(e.target) && !menuBtn.contains(e.target)) {
+                mobileNav.classList.remove('active');
+            }
+        });
+
+        // Drag and drop handlers
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            displayFiles();
+            previewSection.classList.add('active');
+        }
+
+        function displayFiles() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const filePreview = document.createElement('div');
+                filePreview.className = 'file-preview';
+                filePreview.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-icon-small">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;">
+                                <path fill-rule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clip-rule="evenodd" />
+                                <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+                            </svg>
+                        </div>
+                        <div class="file-details">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${(file.size / 1024).toFixed(2)} KB</div>
+                        </div>
+                    </div>
+                    <button class="remove-file" onclick="removeFile(${index})" aria-label="Remove file">×</button>
+                `;
+                fileList.appendChild(filePreview);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                previewSection.classList.remove('active');
+            } else {
+                displayFiles();
+            }
+        }
+
+                function processFiles() {
+    if (selectedFiles.length === 0) return;
+    
+    console.log('🚀 Starting file processing...', selectedFiles.length, 'files');
+    
+    previewSection.style.display = 'none';
+    loadingState.classList.add('active');
+
+    const progressBar = document.getElementById('progressBarFill');
+    const progressLabel = document.getElementById('progressLabel');
+    const loadingMsg = document.querySelector('.loading p');
+
+    function updateProgress(percent, message) {
+        const clamped = Math.max(0, Math.min(100, percent));
+        if (progressBar) progressBar.style.width = clamped + '%';
+        if (progressLabel) progressLabel.textContent = Math.round(clamped) + '%';
+        if (message && loadingMsg) loadingMsg.textContent = message;
+    }
+
+    // Stage 1: Preparing
+    updateProgress(5, 'Preparing upload...');
+
+    const formData = new FormData();
+    selectedFiles.forEach(file => {
+        formData.append('files', file);
+    });
+
+    formData.append('ocr_engine', 'gcv');
+    formData.append('lang', 'en');
+    formData.append('top_k', '12');
+    formData.append('summary_level', 'normal');
+
+    const startTime = Date.now();
+
+    // Simulate realistic progress stages
+    setTimeout(() => updateProgress(10, 'Uploading files...'), 500);
+    setTimeout(() => updateProgress(20, 'Starting OCR engine...'), 1500);
+    setTimeout(() => updateProgress(35, 'Extracting text from pages...'), 3000);
+    setTimeout(() => updateProgress(55, 'AI analyzing content...'), 6000);
+    setTimeout(() => updateProgress(70, 'Extracting key concepts...'), 9000);
+    setTimeout(() => updateProgress(85, 'Building mindmap structure...'), 11000);
+
+    fetch('/api/process', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`⏱️ Processing took ${elapsed}s`);
+        
+        updateProgress(90, 'Preparing results...');
+        
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || `HTTP ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('✅ Processing complete!', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        updateProgress(95, 'Saving results...');
+        
+        // Store in sessionStorage with error handling
+        try {
+            const jsonStr = JSON.stringify(data);
+            console.log(`💾 Storing ${(jsonStr.length/1024).toFixed(1)}KB in sessionStorage`);
+            
+            // Check size limit (5MB = 5,242,880 bytes)
+            if (jsonStr.length > 5000000) {
+                console.warn('⚠️ Data too large, trimming text...');
+                // Trim text to reduce size
+                data.text = data.text.substring(0, 2000) + '\n\n[... truncated for storage ...]';
+                data.summary = data.summary.substring(0, 500);
+            }
+            
+            sessionStorage.setItem('processingResults', JSON.stringify(data));
+            
+            // Verify storage worked
+            const stored = sessionStorage.getItem('processingResults');
+            if (!stored) {
+                throw new Error('SessionStorage failed to save data');
+            }
+            
+            console.log('✅ Data stored successfully');
+            updateProgress(100, 'Complete! Opening results...');
+            
+            // Small delay to ensure storage is complete
+            setTimeout(() => {
+                console.log('🔄 Redirecting to results page...');
+                window.location.href = '/results.html';
+            }, 500);
+            
+        } catch (storageError) {
+            console.error('❌ Storage error:', storageError);
+            loadingState.classList.remove('active');
+            previewSection.style.display = 'block';
+            alert('Results generated but too large to store!\n\n' + 
+                  'Error: ' + storageError.message + '\n\n' +
+                  'Try processing fewer pages or smaller files.');
+        }
+    })
+    .catch(error => {
+        console.error('💥 Processing error:', error);
+        loadingState.classList.remove('active');
+        previewSection.style.display = 'block';
+        
+        alert(`Processing failed: ${error.message}\n\nPossible issues:\n- File too large\n- Network timeout\n- Server error\n\nCheck console (F12) for details.`);
+    });
+}
+
+            // ========== CHECK USER SESSION ==========
+        function checkUserSession() {
+            fetch('/auth/me')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok && data.user) {
+                        // User is logged in
+                        updateNavForLoggedInUser(data.user);
+                    }
+                })
+                .catch(err => {
+                    console.log('Not logged in');
+                });
+        }
+
+                function updateNavForLoggedInUser(user) {
+            // Create user dropdown HTML
+            const userDropdown = `
+                <div class="user-menu-wrapper" style="position: relative;">
+                    <button class="btn-nav user-btn" onclick="toggleUserMenu(event)" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;">
+                            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clip-rule="evenodd" />
+                        </svg>
+                        ${user.username}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 0.5rem; background: var(--warm-white); border-radius: 12px; box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12); border: 1px solid rgba(90, 138, 122, 0.1); min-width: 180px; z-index: 1001;">
+                        <div style="padding: 1rem; border-bottom: 1px solid rgba(90, 138, 122, 0.1);">
+                            <div style="font-weight: 600; color: var(--charcoal);">${user.username}</div>
+                            <div style="font-size: 0.875rem; color: var(--text-medium); margin-top: 0.25rem;">${user.email}</div>
+                        </div>
+                        <div style="padding: 0.5rem;">
+                            <button onclick="logout()" style="width: 100%; text-align: left; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-dark); cursor: pointer; border-radius: 8px; font-size: 0.9375rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; transition: background 0.3s;">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Update desktop nav
+            const navLinks = document.querySelector('.nav-links');
+            if (navLinks) {
+                const signInBtn = navLinks.querySelector('.btn-nav');
+                if (signInBtn) {
+                    signInBtn.replaceWith(createElementFromHTML(userDropdown));
+                }
+            }
+
+            // For mobile, keep it simple
+            const mobileSignIn = document.querySelector('.mobile-nav .btn-nav');
+            if (mobileSignIn) {
+                mobileSignIn.textContent = user.username;
+                mobileSignIn.onclick = (e) => {
+                    e.preventDefault();
+                    if (confirm('Logout?')) {
+                        logout();
+                    }
+                };
+            }
+        }
+
+        function createElementFromHTML(htmlString) {
+            const div = document.createElement('div');
+            div.innerHTML = htmlString.trim();
+            return div.firstChild;
+        }
+
+        function toggleUserMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('userDropdown');
+            if (dropdown && !e.target.closest('.user-menu-wrapper')) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Check session on page load
+        window.addEventListener('DOMContentLoaded', checkUserSession);
+    </script>
 </body>
 </html>

@@ -1,7 +1,72 @@
-﻿*.json
-*credentials*.json
-ai-messy-handnotes-*.json
+﻿# Environment variables
 .env
 .env.local
+.env.*.local
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 instance/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+*.pyc
+
+# Google Cloud credentials
+*.json
+!package.json
+!package-lock.json
+credentials.json
+service-account*.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Node modules (if you add any frontend build tools)
+node_modules/

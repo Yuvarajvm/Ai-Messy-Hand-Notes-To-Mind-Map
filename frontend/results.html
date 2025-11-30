@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results | AI Notes → Mindmap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Vis.js for mindmap visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-sage: #5A8A7A;
+            --dark-sage: #3A6768;
+            --light-sage: #6AA090;
+            --warm-beige: #F5F1E8;
+            --soft-cream: #FAF8F3;
+            --warm-white: #FFFCF7;
+            --charcoal: #2C3333;
+            --text-dark: #2B3A3A;
+            --text-medium: #6B7B7B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--warm-beige);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        nav {
+            background: rgba(255, 252, 247, 0.98);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--primary-sage);
+        }
+
+        .results-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .results-header h1 {
+            font-size: 2rem;
+            color: var(--charcoal);
+            margin-bottom: 0.5rem;
+        }
+
+        .results-meta {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .meta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(90, 138, 122, 0.1);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--primary-sage);
+        }
+
+        .tab-navigation {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--soft-cream);
+            padding: 0.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-medium);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: var(--warm-white);
+            color: var(--primary-sage);
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .mindmap-container {
+            background: rgba(255, 252, 247, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        #mindmap-network {
+            width: 100%;
+            height: 600px;
+            border-radius: 12px;
+            background: var(--soft-cream);
+        }
+
+        /* Mindmap zoom controls */
+        .vis-navigation {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+        }
+
+        .vis-button {
+            background: var(--primary-sage) !important;
+            border: 2px solid var(--dark-sage) !important;
+            border-radius: 8px !important;
+            color: var(--warm-white) !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            transition: all 0.3s !important;
+        }
+
+        .vis-button:hover {
+            background: var(--dark-sage) !important;
+            transform: scale(1.1);
+        }
+
+        .text-container {
+            background: rgba(255, 252, 247, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .text-content {
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--soft-cream);
+            border-radius: 12px;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 0.9375rem;
+        }
+
+        .text-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .text-content::-webkit-scrollbar-track {
+            background: var(--warm-beige);
+            border-radius: 4px;
+        }
+
+        .text-content::-webkit-scrollbar-thumb {
+            background: var(--primary-sage);
+            border-radius: 4px;
+        }
+
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .concept-card {
+            background: rgba(255, 252, 247, 0.95);
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .concept-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(90, 138, 122, 0.15);
+        }
+
+        .concept-score {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .concept-text {
+            font-weight: 500;
+            color: var(--charcoal);
+            font-size: 0.9375rem;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-export {
+            background: var(--primary-sage);
+            color: var(--warm-white);
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-export:hover:not(:disabled) {
+            background: var(--dark-sage);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(90, 138, 122, 0.2);
+        }
+
+        .btn-export:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-export.secondary {
+            background: var(--soft-cream);
+            color: var(--primary-sage);
+            border: 2px solid var(--primary-sage);
+        }
+
+        .btn-export.secondary:hover:not(:disabled) {
+            background: var(--primary-sage);
+            color: var(--warm-white);
+        }
+
+        .btn-export.pdf-btn {
+            background: linear-gradient(135deg, #DC3545, #C82333);
+        }
+
+        .btn-export.pdf-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #C82333, #A71D2A);
+        }
+
+        @media (max-width: 768px) {
+            .results-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .tab-navigation {
+                flex-direction: column;
+            }
+
+            #mindmap-network {
+                height: 400px;
+            }
+
+            .concepts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .export-section {
+                flex-direction: column;
+            }
+
+            .btn-export {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <div class="logo-icon">AI</div>
+                <span>Notes → Mindmap</span>
+            </a>
+            <a href="/" class="back-link">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Back to Home
+            </a>
+        </div>
+    </nav>
+
+    <div class="results-container">
+        <div class="results-header">
+            <h1>Your Mindmap is Ready!</h1>
+            <div class="results-meta" id="resultsMeta">
+                <span class="meta-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span id="engineUsed">OCR: gcv</span>
+                </span>
+                <span class="meta-badge" id="conceptCount">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    <span>12 concepts found</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="tab-navigation">
+            <button class="tab-btn active" onclick="switchTab('mindmap')">Mindmap</button>
+            <button class="tab-btn" onclick="switchTab('text')">Extracted Text</button>
+            <button class="tab-btn" onclick="switchTab('concepts')">Key Concepts</button>
+        </div>
+
+        <div class="content-section active" id="mindmap-section">
+            <div class="mindmap-container">
+                <div id="mindmap-network"></div>
+            </div>
+            <div class="export-section">
+                <button class="btn-export" onclick="exportMindmap('png')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Export as PNG
+                </button>
+                <button class="btn-export secondary" onclick="exportMindmap('json')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                    </svg>
+                    Export as JSON
+                </button>
+                <button class="btn-export pdf-btn" onclick="exportMindmap('pdf')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    Export Full Report (PDF)
+                </button>
+            </div>
+        </div>
+
+        <div class="content-section" id="text-section">
+            <div class="text-container">
+                <h3 style="margin-bottom: 1rem; color: var(--charcoal);">Extracted & Cleaned Text</h3>
+                <div class="text-content" id="extractedText">Loading...</div>
+            </div>
+            <div class="export-section">
+                <button class="btn-export" onclick="copyText()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                    </svg>
+                    Copy to Clipboard
+                </button>
+                <button class="btn-export secondary" onclick="downloadText()">
+                    Download as TXT
+                </button>
+            </div>
+        </div>
+
+        <div class="content-section" id="concepts-section">
+            <div class="concepts-grid" id="conceptsGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        let resultsData = null;
+        let network = null;
+
+        // Load results on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🔍 Checking for results in sessionStorage...');
+            
+            const stored = sessionStorage.getItem('processingResults');
+            
+            if (!stored) {
+                console.error('❌ No results found in sessionStorage');
+                alert('No results found. Please process notes first.');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                console.log(`📦 Found ${(stored.length/1024).toFixed(1)}KB of data`);
+                resultsData = JSON.parse(stored);
+                console.log('✅ Results loaded:', resultsData);
+                
+                // Validate data structure
+                if (!resultsData.mindmap || !resultsData.mindmap.nodes) {
+                    throw new Error('Invalid results data structure');
+                }
+                
+                displayResults();
+            } catch (e) {
+                console.error('❌ Error parsing results:', e);
+                alert('Error loading results: ' + e.message);
+                window.location.href = '/';
+            }
+        });
+
+        function displayResults() {
+            // Update meta badges
+            if (resultsData.meta) {
+                document.getElementById('engineUsed').textContent = 
+                    `OCR: ${resultsData.meta.ocr_engine || 'Google Vision'}`;
+            }
+
+            if (resultsData.keyphrases) {
+                document.querySelector('#conceptCount span').textContent = 
+                    `${resultsData.keyphrases.length} concepts found`;
+            }
+
+            // Display all sections
+            displayMindmap();
+            document.getElementById('extractedText').textContent = 
+                resultsData.text || 'No text extracted';
+            displayConcepts();
+        }
+
+        function displayMindmap() {
+            const container = document.getElementById('mindmap-network');
+            const mindmap = resultsData.mindmap || {};
+
+            if (!mindmap.nodes || mindmap.nodes.length === 0) {
+                container.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--text-medium);">No mindmap data available</div>';
+                return;
+            }
+
+            // Create nodes with enhanced styling
+            const nodes = new vis.DataSet(mindmap.nodes.map(n => ({
+                id: n.id,
+                label: n.label || n.id,
+                shape: 'box',
+                margin: 10,
+                widthConstraint: { minimum: 120, maximum: 250 },
+                heightConstraint: { minimum: 40 },
+                color: {
+                    background: '#6AA090',
+                    border: '#3A6768',
+                    highlight: {
+                        background: '#5A8A7A',
+                        border: '#2C3333'
+                    }
+                },
+                font: {
+                    color: '#FFFCF7',
+                    size: 14,
+                    face: 'Inter',
+                    multi: 'html',
+                    bold: { color: '#FFFCF7' }
+                },
+                borderWidth: 2,
+                borderWidthSelected: 3,
+                shapeProperties: {
+                    borderRadius: 6
+                }
+            })));
+
+            // Create edges
+            const edges = new vis.DataSet((mindmap.edges || []).map(e => ({
+                from: e.from,
+                to: e.to,
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 0.8
+                    }
+                },
+                smooth: {
+                    enabled: true,
+                    type: 'cubicBezier',
+                    roundness: 0.5
+                },
+                color: {
+                    color: '#5A8A7A',
+                    highlight: '#3A6768',
+                    opacity: 0.8
+                },
+                width: 2
+            })));
+
+            const data = { nodes, edges };
+            
+            // Hierarchical layout options
+            const options = {
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD',
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 200,
+                        treeSpacing: 250,
+                        blockShifting: true,
+                        edgeMinimization: true,
+                        parentCentralization: true
+                    }
+                },
+                physics: {
+                    enabled: false
+                },
+                interaction: {
+                    dragNodes: true,
+                    dragView: true,
+                    zoomView: true,
+                    hover: true,
+                    navigationButtons: true,
+                    keyboard: {
+                        enabled: true
+                    }
+                },
+                nodes: {
+                    shadow: {
+                        enabled: true,
+                        color: 'rgba(90, 138, 122, 0.2)',
+                        size: 10,
+                        x: 2,
+                        y: 2
+                    }
+                },
+                edges: {
+                    shadow: {
+                        enabled: true,
+                        color: 'rgba(90, 138, 122, 0.1)',
+                        size: 5,
+                        x: 1,
+                        y: 1
+                    }
+                }
+            };
+
+            network = new vis.Network(container, data, options);
+            
+            // Fit network to view after rendering
+            setTimeout(() => {
+                network.fit({
+                    animation: {
+                        duration: 500,
+                        easingFunction: 'easeInOutQuad'
+                    }
+                });
+            }, 100);
+
+            console.log('✅ Mindmap rendered:', mindmap.nodes.length, 'nodes');
+        }
+
+        function displayConcepts() {
+            const grid = document.getElementById('conceptsGrid');
+            const concepts = resultsData.keyphrases || [];
+
+            if (concepts.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: var(--text-medium); padding: 2rem;">No concepts extracted</p>';
+                return;
+            }
+
+            grid.innerHTML = concepts.map((c, i) => `
+                <div class="concept-card">
+                    <div class="concept-score">${i + 1}</div>
+                    <div class="concept-text">${c.phrase || 'Unknown'}</div>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update content sections
+            document.querySelectorAll('.content-section').forEach(section => 
+                section.classList.remove('active')
+            );
+            document.getElementById(`${tab}-section`).classList.add('active');
+        }
+
+        function exportMindmap(format) {
+            if (format === 'png') {
+                alert('PNG export: Right-click on the mindmap and select "Save Image As..."');
+            } else if (format === 'json') {
+                const dataStr = JSON.stringify(resultsData.mindmap, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mindmap.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } else if (format === 'pdf') {
+                exportToPDF();
+            }
+        }
+
+        function exportToPDF() {
+            const button = event.target.closest('.btn-export');
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px; animation: spin 1s linear infinite;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Generating PDF...
+            `;
+            button.disabled = true;
+            
+            console.log('📄 Starting PDF export...');
+            
+            // Prepare data for PDF
+            const pdfData = {
+                text: resultsData.text || '',
+                summary: resultsData.summary || '',
+                keyphrases: resultsData.keyphrases || [],
+                mindmap: resultsData.mindmap || {},
+                meta: resultsData.meta || {},
+            };
+            
+            // Send to backend
+            fetch('/api/export/pdf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(pdfData)
+            })
+            .then(response => {
+                console.log(`Response status: ${response.status}`);
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || `HTTP ${response.status}`);
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                console.log(`✅ PDF received: ${blob.size} bytes`);
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = new Date().toISOString().split('T')[0];
+                a.download = `mindmap-results-${timestamp}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                console.log('✅ PDF downloaded successfully');
+                
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #5A8A7A; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 9999; animation: fadeIn 0.3s ease;';
+                successMsg.textContent = '✅ PDF exported successfully!';
+                document.body.appendChild(successMsg);
+                setTimeout(() => successMsg.remove(), 3000);
+                
+                // Reset button
+                button.innerHTML = originalText;
+                button.disabled = false;
+            })
+            .catch(error => {
+                console.error('❌ PDF export failed:', error);
+                alert(`PDF export failed: ${error.message}\n\nCheck console (F12) for details.`);
+                
+                // Reset button
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        function copyText() {
+            const text = resultsData.text || '';
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Text copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                alert('❌ Failed to copy text');
+            });
+        }
+
+        function downloadText() {
+            const text = resultsData.text || '';
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'extracted-text.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

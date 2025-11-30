@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features | AI Notes → Mindmap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-sage: #5A8A7A;
+            --dark-sage: #3A6768;
+            --light-sage: #6AA090;
+            --warm-teal: #4A7C7E;
+            --warm-beige: #F5F1E8;
+            --soft-cream: #FAF8F3;
+            --warm-white: #FFFCF7;
+            --charcoal: #2C3333;
+            --text-dark: #2B3A3A;
+            --text-medium: #6B7B7B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--warm-beige);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Same navigation styles as index.html */
+        nav {
+            background: rgba(255, 252, 247, 0.98);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(90, 138, 122, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-sage);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--warm-white);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 0.9375rem;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-sage);
+        }
+
+        .btn-nav {
+            background: var(--primary-sage);
+            color: var(--warm-white) !important;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--primary-sage);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 65px;
+            left: 0;
+            right: 0;
+            background: rgba(255, 252, 247, 0.98);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.12);
+            z-index: 999;
+            padding: 1rem;
+        }
+
+        .mobile-nav.active {
+            display: block;
+        }
+
+        .mobile-nav a {
+            display: block;
+            padding: 0.875rem 1rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(90, 138, 122, 0.1);
+        }
+
+        .mobile-nav .btn-nav {
+            display: block;
+            text-align: center;
+            margin-top: 0.5rem;
+            border: none;
+        }
+
+        /* Hero Section */
+        .page-hero {
+            max-width: 900px;
+            margin: 4rem auto 3rem;
+            padding: 0 1.5rem;
+            text-align: center;
+        }
+
+        .page-hero h1 {
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: var(--charcoal);
+            margin-bottom: 1rem;
+        }
+
+        .page-hero p {
+            font-size: 1.125rem;
+            color: var(--text-medium);
+            line-height: 1.7;
+        }
+
+        /* Features Detailed */
+        .features-detailed {
+            max-width: 1200px;
+            margin: 3rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .feature-detail {
+            background: rgba(255, 252, 247, 0.95);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 4px 16px rgba(90, 138, 122, 0.08);
+            border: 1px solid rgba(90, 138, 122, 0.1);
+            display: flex;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .feature-detail:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .feature-icon-large {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-sage), var(--dark-sage));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            flex-shrink: 0;
+        }
+
+        .feature-content {
+            flex: 1;
+        }
+
+        .feature-content h2 {
+            font-size: 1.75rem;
+            color: var(--charcoal);
+            margin-bottom: 1rem;
+        }
+
+        .feature-content p {
+            color: var(--text-medium);
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 0.5rem 0 0.5rem 2rem;
+            position: relative;
+            color: var(--text-dark);
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--primary-sage);
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, var(--primary-sage), var(--warm-teal));
+            border-radius: 20px;
+            text-align: center;
+            color: var(--warm-white);
+        }
+
+        .cta-section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            font-size: 1.125rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+        }
+
+        .btn-cta {
+            background: var(--warm-white);
+            color: var(--primary-sage);
+            padding: 1rem 2.5rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.125rem;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .page-hero h1 {
+                font-size: 2rem;
+            }
+
+            .feature-detail {
+                flex-direction: column !important;
+                padding: 2rem 1.5rem;
+            }
+
+            .feature-icon-large {
+                width: 70px;
+                height: 70px;
+                font-size: 2rem;
+            }
+
+            .feature-content h2 {
+                font-size: 1.5rem;
+            }
+
+            .cta-section {
+                margin: 3rem 1.5rem;
+                padding: 2rem 1.5rem;
+            }
+
+            .cta-section h2 {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <div class="logo-icon">AI</div>
+                <span>Notes → Mindmap</span>
+            </a>
+            <div class="nav-links">
+                <a href="features.html" class="active">Features</a>
+                <a href="how-it-works.html">How It Works</a>
+                <a href="pricing.html">Pricing</a>
+                <a href="login.html" class="btn-nav">Sign In</a>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav" id="mobileNav">
+        <a href="features.html">Features</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="login.html" class="btn-nav">Sign In</a>
+    </div>
+
+    <section class="page-hero">
+        <h1>Powerful Features for Smart Learning</h1>
+        <p>Discover how AI Notes → Mindmap transforms your study workflow with cutting-edge technology and intuitive design.</p>
+    </section>
+
+    <section class="features-detailed">
+        <div class="feature-detail">
+            <div class="feature-icon-large">🔍</div>
+            <div class="feature-content">
+                <h2>AI-Enhanced OCR</h2>
+                <p>Our Google Vision-powered OCR engine extracts text from even the messiest handwritten notes with industry-leading accuracy.</p>
+                <ul class="feature-list">
+                    <li>Handles low-light photos and shadows</li>
+                    <li>Recognizes multiple handwriting styles</li>
+                    <li>Supports 50+ languages</li>
+                    <li>Processes skewed and rotated images</li>
+                    <li>Works with mixed text and diagrams</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-detail">
+            <div class="feature-icon-large">🧠</div>
+            <div class="feature-content">
+                <h2>Smart Mindmap Generation</h2>
+                <p>Advanced AI analyzes your notes to automatically identify concepts, relationships, and hierarchies, creating interactive visual mindmaps.</p>
+                <ul class="feature-list">
+                    <li>Automatic concept extraction</li>
+                    <li>Hierarchical relationship mapping</li>
+                    <li>Color-coded topic categorization</li>
+                    <li>Interactive drag-and-drop editing</li>
+                    <li>Export to multiple formats</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-detail">
+            <div class="feature-icon-large">📱</div>
+            <div class="feature-content">
+                <h2>Mobile-First Design</h2>
+                <p>Capture notes anywhere with your phone camera and process them instantly. Our responsive design works seamlessly across all devices.</p>
+                <ul class="feature-list">
+                    <li>Optimized for mobile photography</li>
+                    <li>Touch-friendly interface</li>
+                    <li>Works offline (coming soon)</li>
+                    <li>Cross-device synchronization</li>
+                    <li>Progressive web app support</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-detail">
+            <div class="feature-icon-large">⚡</div>
+            <div class="feature-content">
+                <h2>Lightning-Fast Processing</h2>
+                <p>Our job queue architecture ensures your notes are processed quickly without blocking your workflow.</p>
+                <ul class="feature-list">
+                    <li>Batch processing for multiple files</li>
+                    <li>Real-time status updates</li>
+                    <li>Priority processing for premium users</li>
+                    <li>Background processing</li>
+                    <li>Email notifications on completion</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-detail">
+            <div class="feature-icon-large">🔒</div>
+            <div class="feature-content">
+                <h2>Enterprise-Grade Security</h2>
+                <p>Your notes are processed securely with industry-standard encryption and privacy protection.</p>
+                <ul class="feature-list">
+                    <li>End-to-end encryption</li>
+                    <li>GDPR compliant</li>
+                    <li>Automatic file deletion after processing</li>
+                    <li>Secure cloud storage</li>
+                    <li>Two-factor authentication</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>Ready to Transform Your Notes?</h2>
+        <p>Join thousands of students and professionals who are already using AI Notes → Mindmap</p>
+        <a href="/" class="btn-cta">Get Started Free</a>
+    </section>
+
+    <script>
+        function toggleMobileMenu() {
+            document.getElementById('mobileNav').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>
